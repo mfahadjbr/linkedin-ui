@@ -64,7 +64,7 @@ export default function Testimonials() {
 
               {/* Testimonial Text */}
               <p className={`text-lg mb-6 leading-relaxed ${testimonial.featured ? 'text-white' : 'text-gray-700'}`}>
-                "{testimonial.testimonial}"
+                &quot;{testimonial.testimonial}&quot;
               </p>
 
               {/* Author */}

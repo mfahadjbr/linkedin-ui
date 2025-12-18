@@ -13,17 +13,13 @@ import {
   Video, 
   Check, 
   Globe, 
-  Users,
-  ChevronRight,
-  Sparkles,
   ThumbsUp,
   MessageSquare,
   Repeat2,
   Send as SendIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/input";
-import Image from "next/image";
+import { Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type PostType = "text" | "image" | "carousel" | "video";

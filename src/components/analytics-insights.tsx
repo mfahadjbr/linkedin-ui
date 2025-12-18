@@ -1,6 +1,6 @@
 'use client';
 
-import { TrendingUp, ShoppingCart, BarChart3 } from 'lucide-react';
+import Image from 'next/image';
 
 export default function AnalyticsInsights() {
   return (
@@ -30,12 +30,11 @@ export default function AnalyticsInsights() {
           {/* Right Side - Floating Cards */}
           <div className="relative w-full h-52 xs:h-64 sm:h-80 md:h-96 aspect-square max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg rounded-3xl mx-auto flex items-center justify-center">
             {/* Background gradient */}
-            <img
+            <Image
               src="/4.png"
               alt="Analytics Insights Cards"
-              width={1200}
-              height={800}
-              className="absolute inset-0 w-full h-full bg-[#f8faf9] object-fill rounded-3xl"
+              fill
+              className="object-fill rounded-3xl"
               style={{ pointerEvents: 'none', userSelect: 'none' }}
             />
           </div>

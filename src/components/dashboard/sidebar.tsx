@@ -9,7 +9,6 @@ import {
   Database, 
   Clock, 
   LogOut,
-  Linkedin,
   Menu,
   X
 } from "lucide-react";

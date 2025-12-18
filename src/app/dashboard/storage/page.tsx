@@ -3,18 +3,14 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
-  Database, 
-  Search, 
   Upload, 
   Filter, 
   Image as ImageIcon, 
   Video as VideoIcon, 
-  MoreHorizontal, 
   ExternalLink,
   ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";

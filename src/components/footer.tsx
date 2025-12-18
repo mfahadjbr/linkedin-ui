@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Twitter, Youtube, Linkedin, Mail, Github } from "lucide-react";
+import { Twitter, Linkedin, Mail, Github } from "lucide-react";
 
 export default function Footer() {
   return (

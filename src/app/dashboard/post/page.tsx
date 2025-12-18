@@ -16,13 +16,12 @@ import {
   Send as SendIcon,
   Globe,
   Users,
-  Calendar,
   Sparkles,
   Database,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input, Textarea } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/input";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +32,6 @@ export default function PostPage() {
   const [postType, setPostType] = useState<PostType>("text");
   const [content, setContent] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("public");
-  const [isScheduling, setIsScheduling] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 

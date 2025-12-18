@@ -62,7 +62,7 @@ export default function AboutPage() {
                 About <span className="text-primary">Postsiva</span>
               </h1>
               <p className="text-xl text-slate-600 leading-relaxed max-w-3xl mx-auto">
-                We're on a mission to help professionals and businesses unlock the full potential of LinkedIn through
+                We&apos;re on a mission to help professionals and businesses unlock the full potential of LinkedIn through
                 intelligent automation and meaningful connections.
               </p>
             </motion.div>
@@ -88,13 +88,13 @@ export default function AboutPage() {
                     building a consulting business.
                   </p>
                   <p>
-                    After years of understanding LinkedIn's intricacies, we assembled a
+                    After years of understanding LinkedIn&apos;s intricacies, we assembled a
                     team of experts in AI, automation, and B2B marketing to create a solution that would change how
                     professionals approach LinkedIn networking.
                   </p>
                   <p>
                     Today, Postsiva helps over 10,000 professionals and businesses automate their LinkedIn activities
-                    while maintaining authenticity and compliance with LinkedIn's terms of service.
+                    while maintaining authenticity and compliance with LinkedIn&apos;s terms of service.
                   </p>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-4">
