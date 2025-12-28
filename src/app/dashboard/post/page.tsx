@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { 
   FileText, 
   Image as ImageIcon, 
@@ -18,22 +19,79 @@ import {
   Users,
   Sparkles,
   Database,
-  X
+  X,
+  Loader2,
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
-
-type PostType = "text" | "image" | "multiple" | "video";
-type Visibility = "public" | "connections";
+import { usePost, PostType, Visibility } from "@/hooks/posts";
+import { createImagePost, createVideoPost } from "@/hooks/posts/api";
+import { useLinkedInProfile } from "@/hooks/linkedin";
+import { useAuth } from "@/hooks/auth";
+import { MediaSelectorModal } from "@/components/media-selector-modal";
 
 export default function PostPage() {
+  const searchParams = useSearchParams();
   const [postType, setPostType] = useState<PostType>("text");
   const [content, setContent] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("public");
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [storedFiles, setStoredFiles] = useState<File[]>([]);
+  const [preSelectedMediaId, setPreSelectedMediaId] = useState<string | null>(null);
+  const [preSelectedMediaType, setPreSelectedMediaType] = useState<'image' | 'video' | null>(null);
+  const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { createPost, isPosting, isUploading, error, success, clearError, resetPost } = usePost();
+  const { profile, fetchProfile } = useLinkedInProfile();
+  const { user } = useAuth();
+
+  // Fetch profile on mount
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  // Handle pre-selected media from storage page
+  useEffect(() => {
+    const mediaId = searchParams.get('media_id');
+    const mediaType = searchParams.get('media_type');
+    const mediaUrl = searchParams.get('media_url');
+
+    if (mediaId && mediaType && mediaUrl) {
+      // Set pre-selected media
+      setPreSelectedMediaId(mediaId);
+      setPreSelectedMediaType(mediaType as 'image' | 'video');
+      
+      // Set post type based on media type
+      if (mediaType === 'image') {
+        setPostType('image');
+      } else if (mediaType === 'video') {
+        setPostType('video');
+      }
+      
+      // Set preview URL
+      setPreviewUrls([mediaUrl]);
+      
+      // Clear URL params to avoid re-triggering
+      window.history.replaceState({}, '', '/dashboard/post');
+    }
+  }, [searchParams]);
+
+  // Get display name and avatar
+  const displayName = profile?.name || user?.full_name || 'User';
+  const profilePicture = profile?.picture || null;
+  
+  // Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -42,14 +100,135 @@ export default function PostPage() {
       
       if (postType === "multiple") {
         setPreviewUrls(prev => [...prev, ...newUrls].slice(0, 20));
+        setStoredFiles(prev => [...prev, ...files].slice(0, 20));
       } else {
         setPreviewUrls(newUrls.slice(0, 1));
+        setStoredFiles(files.slice(0, 1));
       }
+    }
+    
+    // Reset input value to allow selecting the same file again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   const removeFile = (index: number) => {
+    // Revoke object URL to free memory (only for blob URLs)
+    if (previewUrls[index]?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrls[index]);
+    }
+    
+    // If removing pre-selected media, clear the state
+    if (index === 0 && preSelectedMediaId && previewUrls.length === 1) {
+      setPreSelectedMediaId(null);
+      setPreSelectedMediaType(null);
+    }
+    
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+    setStoredFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    // Clear any previous errors
+    clearError();
+    
+    // Validate content (allow empty if using pre-selected media)
+    if (!content.trim() && !preSelectedMediaId) {
+      return;
+    }
+
+    // Validate files based on post type (unless using pre-selected media)
+    if (!preSelectedMediaId) {
+      if (postType !== "text" && storedFiles.length === 0) {
+        return;
+      }
+
+      if (postType === "multiple" && storedFiles.length < 2) {
+        return;
+      }
+    }
+
+    try {
+      let result;
+      
+      // If using pre-selected media, use media_id directly
+      if (preSelectedMediaId && preSelectedMediaType) {
+        if (preSelectedMediaType === 'image') {
+          result = await createImagePost({
+            image_id: preSelectedMediaId,
+            text: content.trim() || '',
+            visibility,
+          });
+        } else if (preSelectedMediaType === 'video') {
+          result = await createVideoPost({
+            video_id: preSelectedMediaId,
+            text: content.trim() || '',
+            title: content.split('\n')[0] || 'Video Post',
+            visibility,
+          });
+        } else {
+          throw new Error('Invalid media type');
+        }
+      } else {
+        // Use normal flow with file upload
+        result = await createPost(postType, content, storedFiles, visibility);
+      }
+      
+      if (result.success) {
+        // Reset form on success
+        setContent('');
+        setPreviewUrls([]);
+        setStoredFiles([]);
+        setPreSelectedMediaId(null);
+        setPreSelectedMediaType(null);
+        
+        // Reset post state after a delay
+        setTimeout(() => {
+          resetPost();
+        }, 3000);
+      }
+    } catch (error) {
+      // Error is handled by usePost hook or shown directly
+      console.error('Failed to create post:', error);
+    }
+  };
+
+  const handlePostTypeChange = (newType: PostType) => {
+    setPostType(newType);
+    // Clear files and pre-selected media when changing post type
+    previewUrls.forEach(url => {
+      if (url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    });
+    setPreviewUrls([]);
+    setStoredFiles([]);
+    setPreSelectedMediaId(null);
+    setPreSelectedMediaType(null);
+  };
+
+  const handleMediaSelect = (mediaId: string, mediaType: 'image' | 'video', mediaUrl: string) => {
+    // Set pre-selected media
+    setPreSelectedMediaId(mediaId);
+    setPreSelectedMediaType(mediaType);
+    
+    // Set post type based on media type if not already set
+    if (mediaType === 'image' && postType === 'text') {
+      setPostType('image');
+    } else if (mediaType === 'video' && postType === 'text') {
+      setPostType('video');
+    }
+    
+    // Set preview URL
+    setPreviewUrls([mediaUrl]);
+  };
+
+  // Get filter for media modal based on post type
+  const getMediaFilter = (): 'all' | 'image' | 'video' => {
+    if (postType === 'image' || postType === 'multiple') return 'image';
+    if (postType === 'video') return 'video';
+    return 'all';
   };
 
   const postTypes = [
@@ -60,7 +239,38 @@ export default function PostPage() {
   ];
 
   return (
-    <div className="p-4 md:p-8 max-w-[1200px] mx-auto min-h-screen">
+    <div className="p-4 md:p-8 w-full min-h-screen relative">
+      {/* Loading Overlay */}
+      <AnimatePresence>
+        {(isPosting || isUploading) && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-3xl shadow-2xl p-8 md:p-12 max-w-md w-full mx-4 text-center"
+            >
+              <div className="w-16 h-16 mx-auto mb-6 bg-primary/10 rounded-full flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 mb-2">
+                {isUploading ? "Uploading Media..." : "Posting to LinkedIn..."}
+              </h2>
+              <p className="text-slate-600 font-bold">
+                {isUploading 
+                  ? "Please wait while we upload your media files" 
+                  : "Your post is being published. This may take a few moments."}
+              </p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="mb-6 md:mb-8">
         <h1 className="text-2xl md:text-3xl font-black text-slate-900 mb-1">Create Post</h1>
         <p className="text-xs md:text-sm text-slate-500 font-bold">Create and publish a new LinkedIn post</p>
@@ -77,10 +287,7 @@ export default function PostPage() {
                 return (
                   <button
                     key={type.id}
-                    onClick={() => {
-                      setPostType(type.id as PostType);
-                      setPreviewUrls([]);
-                    }}
+                    onClick={() => handlePostTypeChange(type.id as PostType)}
                     className={cn(
                       "flex flex-col items-center gap-2 p-4 rounded-3xl border-2 transition-all duration-300 text-center relative overflow-hidden group",
                       isActive 
@@ -118,7 +325,7 @@ export default function PostPage() {
                 placeholder={postType === "text" ? "What do you want to share?" : "Add a caption for your post..."}
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="min-h-[180px] text-lg border-none focus-visible:ring-0 p-0 resize-none"
+                className="min-h-[180px] text-lg border-none focus-visible:ring-0 p-4 resize-none"
               />
               <div className="flex justify-between items-center mt-6 pt-6 border-t border-slate-100">
                 <span className="text-[10px] font-black text-slate-300 tracking-widest uppercase">{content.length}/3000 characters</span>
@@ -134,7 +341,10 @@ export default function PostPage() {
             <section className="space-y-4">
               <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Media Upload</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button className="flex items-center gap-4 h-32 px-6 rounded-[2rem] border-2 border-dashed border-slate-200 bg-slate-50 text-slate-500 font-bold hover:border-primary/50 hover:bg-primary/5 transition-all group">
+                <button 
+                  onClick={() => setIsMediaModalOpen(true)}
+                  className="flex items-center gap-4 h-32 px-6 rounded-[2rem] border-2 border-dashed border-slate-200 bg-slate-50 text-slate-500 font-bold hover:border-primary/50 hover:bg-primary/5 transition-all group"
+                >
                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center border border-slate-100 shadow-sm">
                     <Database className="w-6 h-6 text-slate-400 group-hover:text-primary" />
                    </div>
@@ -186,10 +396,45 @@ export default function PostPage() {
               </div>
             </section>
 
-            <section className="w-full md:w-auto">
-              <Button className="w-full h-14 rounded-2xl text-base font-black gap-3 shadow-xl shadow-primary/20 px-10">
-                <Check className="w-5 h-5" />
-                Post to LinkedIn
+            <section className="w-full md:w-auto space-y-4">
+              {error && (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-red-900">{error}</p>
+                    <button
+                      onClick={clearError}
+                      className="text-xs text-red-600 hover:text-red-800 underline mt-1"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {success && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+                  <p className="text-sm font-bold text-green-900">Post created successfully!</p>
+                </div>
+              )}
+              
+              <Button 
+                onClick={handleSubmit}
+                disabled={isPosting || isUploading || (!content.trim() && !preSelectedMediaId) || (postType !== "text" && storedFiles.length === 0 && !preSelectedMediaId)}
+                className="w-full h-14 rounded-2xl text-base font-black gap-3 shadow-xl shadow-primary/20 px-10 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isPosting || isUploading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    {isUploading ? "Uploading..." : "Posting..."}
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Post to LinkedIn
+                  </>
+                )}
               </Button>
             </section>
           </div>
@@ -202,10 +447,23 @@ export default function PostPage() {
             <div className="bg-white rounded-[2rem] border border-slate-100 shadow-2xl overflow-hidden">
                {/* LinkedIn Post Header */}
                <div className="p-4 flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold">MU</div>
+                  <div className="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold overflow-hidden relative">
+                    {profilePicture ? (
+                      <Image 
+                        src={profilePicture} 
+                        alt={displayName}
+                        width={48}
+                        height={48}
+                        className="w-full h-full object-cover rounded-full"
+                        unoptimized
+                      />
+                    ) : (
+                      <span>{getInitials(displayName)}</span>
+                    )}
+                  </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-1">
-                      <span className="font-black text-slate-900 text-sm">Muhammad Uzair Yasin</span>
+                      <span className="font-black text-slate-900 text-sm">{displayName}</span>
                       <span className="text-slate-400 text-xs font-medium">• Just now</span>
                     </div>
                     <div className="flex items-center gap-1 text-slate-400">
@@ -250,7 +508,7 @@ export default function PostPage() {
                        )}>
                           {previewUrls.slice(0, 4).map((url, i) => (
                             <div key={i} className="aspect-square relative overflow-hidden group first:rounded-tl-xl last:rounded-br-xl even:rounded-tr-xl odd:rounded-bl-xl">
-                              <Image src={url} alt="" fill className="object-cover rounded-lg" />
+                              <Image src={url} alt="" fill className="object-cover rounded-lg" unoptimized />
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -270,7 +528,7 @@ export default function PostPage() {
                        </div>
                      ) : (
                        <div className="aspect-video relative bg-slate-50 group border-y border-slate-100">
-                         <Image src={previewUrls[0]} alt="" fill className="object-cover" />
+                         <Image src={previewUrls[0]} alt="" fill className="object-cover" unoptimized />
                          <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -309,6 +567,14 @@ export default function PostPage() {
           </div>
         </div>
       </div>
+
+      {/* Media Selector Modal */}
+      <MediaSelectorModal
+        isOpen={isMediaModalOpen}
+        onClose={() => setIsMediaModalOpen(false)}
+        onSelect={handleMediaSelect}
+        filter={getMediaFilter()}
+      />
     </div>
   );
 }

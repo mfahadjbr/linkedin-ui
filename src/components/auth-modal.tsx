@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Mail, Lock, User, X, Chrome, Facebook, Github, Linkedin } from 'lucide-react';
+import { useAuth } from '@/hooks/auth';
+import { useRouter } from 'next/navigation';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,19 +13,46 @@ interface AuthModalProps {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isLogin, setIsLogin] = useState(false);
   const [formData, setFormData] = useState({
+    full_name: '',
     username: '',
     email: '',
     password: '',
   });
+  const router = useRouter();
+  const { login, signup, isLoading, error, isAuthenticated, clearError, loginWithGoogle, isGoogleOAuthLoading } = useAuth();
+
+  // Close modal and redirect if authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && isOpen) {
+      onClose();
+      router.replace('/dashboard/profile');
+    }
+  }, [isAuthenticated, isLoading, isOpen, onClose, router]);
+
+  // Clear error when switching between login/signup
+  useEffect(() => {
+    clearError();
+  }, [isLogin, clearError]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('[v0] Form submitted:', { isLogin, formData });
+    clearError();
+
+    if (isLogin) {
+      await login({ email: formData.email, password: formData.password });
+    } else {
+      await signup({
+        full_name: formData.full_name,
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+      });
+    }
   };
 
   if (!isOpen) return null;
@@ -50,20 +79,42 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               {isLogin ? 'Login' : 'Registration'}
             </h2>
 
+            {/* Error Message */}
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-red-600 text-sm font-medium">
+                {error}
+              </div>
+            )}
+
             {/* Form Fields */}
             <form onSubmit={handleSubmit} className="space-y-4 mb-6">
               {!isLogin && (
-                <div className="relative">
-                  <input
-                    type="text"
-                    name="username"
-                    placeholder="Username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    className="w-full bg-gray-100 rounded-xl px-5 py-3 placeholder-gray-500 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 transition"
-                  />
-                  <User className="absolute right-4 top-3.5 text-gray-400" size={20} />
-                </div>
+                <>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="full_name"
+                      placeholder="Full Name"
+                      value={formData.full_name}
+                      onChange={handleInputChange}
+                      className="w-full bg-gray-100 rounded-xl px-5 py-3 placeholder-gray-500 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      required
+                    />
+                    <User className="absolute right-4 top-3.5 text-gray-400" size={20} />
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="username"
+                      placeholder="Username"
+                      value={formData.username}
+                      onChange={handleInputChange}
+                      className="w-full bg-gray-100 rounded-xl px-5 py-3 placeholder-gray-500 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                      required
+                    />
+                    <User className="absolute right-4 top-3.5 text-gray-400" size={20} />
+                  </div>
+                </>
               )}
 
               <div className="relative">
@@ -74,6 +125,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   value={formData.email}
                   onChange={handleInputChange}
                   className="w-full bg-gray-100 rounded-xl px-5 py-3 placeholder-gray-500 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  required
                 />
                 <Mail className="absolute right-4 top-3.5 text-gray-400" size={20} />
               </div>
@@ -86,6 +138,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   value={formData.password}
                   onChange={handleInputChange}
                   className="w-full bg-gray-100 rounded-xl px-5 py-3 placeholder-gray-500 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                  required
                 />
                 <Lock className="absolute right-4 top-3.5 text-gray-400" size={20} />
               </div>
@@ -100,9 +153,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold py-3 rounded-xl hover:shadow-lg hover:shadow-blue-500/40 transition duration-200"
+                disabled={isLoading}
+                className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold py-3 rounded-xl hover:shadow-lg hover:shadow-blue-500/40 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isLogin ? 'Login' : 'Register'}
+                {isLoading ? (isLogin ? 'Logging in...' : 'Creating account...') : (isLogin ? 'Login' : 'Register')}
               </button>
             </form>
 
@@ -115,7 +169,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             {/* Social Login Buttons */}
             <div className="grid grid-cols-4 gap-3 mb-6">
-              <button className="bg-white border-2 border-gray-300 rounded-xl p-3 hover:border-blue-400 hover:bg-blue-50 transition">
+              <button 
+                className="bg-white border-2 border-gray-300 rounded-xl p-3 hover:border-blue-400 hover:bg-blue-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => loginWithGoogle()}
+                disabled={isLoading || isGoogleOAuthLoading}
+                title="Sign in with Google"
+              >
                 <Chrome className="text-gray-800 mx-auto" size={24} />
               </button>
               <button className="bg-white border-2 border-gray-300 rounded-xl p-3 hover:border-blue-400 hover:bg-blue-50 transition">

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "./ui/button";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ArrowRight } from "lucide-react";
 
 export const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -45,7 +46,11 @@ export const Navbar = () => {
           <Link href="/login" className="text-sm font-semibold text-slate-600 hover:text-primary transition-colors">
             Log in
           </Link>
-          <Button size="sm" className="h-9 px-4 text-xs rounded-lg">Get Started</Button>
+          <Button size="sm" className="h-9 px-4 text-xs rounded-lg">
+            <Link href="/signup" className="flex items-center gap-2">
+              Get Started
+            </Link>
+          </Button>
         </div>
       </div>
     </motion.nav>

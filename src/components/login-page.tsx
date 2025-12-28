@@ -5,30 +5,85 @@ import Link from "next/link";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Github, Chrome, ArrowLeft } from "lucide-react";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useAuth } from "@/hooks/auth";
+import { useLinkedIn } from "@/hooks/linkedin";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
+  const { login, isLoading, error, isAuthenticated, clearError, loginWithGoogle, isGoogleOAuthLoading } = useAuth();
+  const { isConnected, isLoading: linkedInLoading, checkConnection } = useLinkedIn();
+  const redirectingRef = useRef(false);
+  const lastPathnameRef = useRef(pathname);
+  const linkedInCheckedRef = useRef(false);
+
+  // Reset redirect flag when pathname changes
+  useEffect(() => {
+    if (lastPathnameRef.current !== pathname) {
+      redirectingRef.current = false;
+      linkedInCheckedRef.current = false;
+      lastPathnameRef.current = pathname;
+    }
+  }, [pathname]);
+
+  // Check LinkedIn connection when authenticated (only once)
+  useEffect(() => {
+    if (pathname !== "/login") return;
+    
+    if (isAuthenticated && !isLoading && !linkedInCheckedRef.current) {
+      linkedInCheckedRef.current = true;
+      checkConnection();
+    }
+  }, [isAuthenticated, isLoading, pathname, checkConnection]);
+
+  // Redirect based on LinkedIn connection status (only after check completes)
+  useEffect(() => {
+    // Only redirect if we're on login page and haven't redirected yet
+    if (pathname !== "/login" || redirectingRef.current) return;
+    
+    // Wait for auth check to complete
+    if (isLoading) return;
+    
+    // Check localStorage as source of truth
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    
+    // Must have token (user is authenticated)
+    if (!token) return; // Not authenticated, stay on login
+    
+    // LinkedIn check must have been initiated
+    if (!linkedInCheckedRef.current) {
+      return; // Will be handled by the check connection useEffect
+    }
+    
+    // Wait for LinkedIn check to complete
+    if (linkedInLoading) return;
+    
+    // Only redirect once after all checks complete
+    if (redirectingRef.current) return;
+    
+    redirectingRef.current = true;
+    
+    // Redirect based on connection status
+    // If isConnected is true, go to dashboard; if false, go to LinkedIn connect
+    if (isConnected) {
+      router.replace("/dashboard/profile");
+    } else {
+      router.replace("/linkedin-connect");
+    }
+  }, [isAuthenticated, isLoading, isConnected, linkedInLoading, pathname, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError("");
+    clearError();
 
-    // Mimic API delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
-
-    if (email === "test@gmail.com" && password === "123123123") {
-      router.push("/dashboard/profile");
-    } else {
-      setError("Invalid email or password. Please try test@gmail.com / 123123123");
-      setIsLoading(false);
-    }
+    await login({ email, password });
+    
+    // Don't redirect here - let the useEffect handle it after state updates
+    // This prevents double redirects and race conditions
   };
 
   return (
@@ -38,21 +93,13 @@ export default function LoginPage() {
       <div className="glow-effect top-0 left-0 w-[800px] h-[800px] opacity-60" />
       <div className="glow-effect bottom-0 right-0 w-[800px] h-[800px] opacity-60" />
 
-      <Link 
-        href="/" 
-        className="absolute top-10 left-10 z-20 flex items-center gap-2 text-slate-500 hover:text-primary transition-colors font-bold group"
-      >
-        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
-        Back to Home
-      </Link>
-
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-[460px] relative z-10"
       >
         <div className="text-center mb-10">
-          <Link href="/" className="inline-flex items-center gap-2 mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 mb-8 group transition-transform hover:scale-105">
             <div className="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-lg shadow-primary/30">
               P
             </div>
@@ -118,15 +165,26 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" className="h-14 rounded-2xl gap-3 font-bold bg-white/50 border-slate-200 hover:border-primary">
+          <div className="flex flex-col gap-3">
+            <Button 
+              variant="outline" 
+              className="h-14 rounded-2xl gap-3 font-bold bg-white/50 border-slate-200 hover:border-primary disabled:opacity-50 w-full shadow-sm"
+              onClick={() => loginWithGoogle('/dashboard')}
+              disabled={isLoading || isGoogleOAuthLoading}
+            >
               <Chrome className="w-5 h-5" />
-              Google
+              {isGoogleOAuthLoading ? 'Connecting...' : 'Continue with Google'}
             </Button>
-            <Button variant="outline" className="h-14 rounded-2xl gap-3 font-bold bg-white/50 border-slate-200 hover:border-primary">
-              <Github className="w-5 h-5" />
-              Github
-            </Button>
+            
+            <Link href="/" className="w-full">
+              <Button 
+                variant="ghost" 
+                className="h-14 rounded-2xl gap-3 font-bold text-slate-500 hover:text-primary hover:bg-primary/5 w-full transition-all"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back to Home
+              </Button>
+            </Link>
           </div>
         </div>
 

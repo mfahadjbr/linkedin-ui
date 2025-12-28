@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
   User, 
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
+import { useAuth } from "@/hooks/auth";
 
 const menuItems = [
   {
@@ -38,33 +39,61 @@ const menuItems = [
   },
 ];
 
-export const DashboardSidebar = () => {
+export const DashboardSidebar = ({ 
+  isOpen, 
+  setIsOpen 
+}: { 
+  isOpen?: boolean; 
+  setIsOpen?: (open: boolean) => void 
+}) => {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
+  const { logout } = useAuth();
+  const [internalOpen, setInternalOpen] = useState(false);
+
+  // Use either controlled or internal state
+  const isSidebarOpen = isOpen !== undefined ? isOpen : internalOpen;
+  const toggleSidebar = setIsOpen !== undefined ? setIsOpen : setInternalOpen;
+
+  const handleLogout = () => {
+    // Clear all localStorage data
+    if (typeof window !== 'undefined') {
+      localStorage.clear();
+    }
+    
+    // Call logout from auth hook
+    logout();
+    
+    // Redirect to login page immediately
+    router.replace('/login');
+  };
 
   return (
     <>
-      {/* Mobile Menu Button */}
+      {/* Mobile Menu Button - Fixed position to ensure visibility and toggle state */}
       <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 right-4 z-[60] lg:hidden w-10 h-10 bg-white rounded-xl shadow-lg border border-slate-100 flex items-center justify-center text-slate-600"
+        onClick={() => toggleSidebar(!isSidebarOpen)}
+        className={cn(
+          "fixed top-4 right-4 z-[60] lg:hidden w-10 h-10 rounded-xl border border-slate-100 flex items-center justify-center transition-all duration-200",
+          isSidebarOpen ? "bg-primary text-white" : "bg-white text-slate-600"
+        )}
       >
-        {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        {isSidebarOpen ? <X className="w-6 h-6" strokeWidth={2.5} /> : <Menu className="w-6 h-6" />}
       </button>
 
       {/* Overlay */}
-      {isOpen && (
+      {isSidebarOpen && (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          onClick={() => setIsOpen(false)}
+          onClick={() => toggleSidebar(false)}
           className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[50] lg:hidden"
         />
       )}
 
       <div className={cn(
         "fixed inset-y-0 left-0 z-[55] w-64 bg-white border-r border-slate-100 flex flex-col p-5 transition-transform duration-300 lg:translate-x-0 lg:static lg:h-screen",
-        isOpen ? "translate-x-0" : "-translate-x-full"
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <Link href="/" className="flex items-center gap-2.5 mb-10 ml-1">
           <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-primary/30">
@@ -82,7 +111,7 @@ export const DashboardSidebar = () => {
               <Link 
                 key={item.href} 
                 href={item.href}
-                onClick={() => setIsOpen(false)}
+                onClick={() => toggleSidebar(false)}
                 className="block relative"
               >
                 <div className={cn(
@@ -109,7 +138,7 @@ export const DashboardSidebar = () => {
 
         <div className="pt-5 border-t border-slate-100">
           <button 
-            onClick={() => window.location.href = "/login"}
+            onClick={handleLogout}
             className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl text-red-500 hover:bg-red-50 transition-colors group"
           >
             <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />

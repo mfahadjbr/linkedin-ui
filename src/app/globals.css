@@ -3,6 +3,7 @@
 @theme {
   --color-primary: #5db0ff;
   --color-primary-foreground: #FFFFFF;
+  --radius-4xl: 2rem;
 }
 
 :root {

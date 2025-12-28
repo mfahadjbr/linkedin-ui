@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 const Particle = ({ delay, duration, left }: { delay: number; duration: number; left: string }) => (
   <motion.div
@@ -91,8 +92,10 @@ export default function HeroSection() {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16"
         >
           <Button size="md" className="group h-14 px-10 rounded-xl text-base">
-            Start Free Trial
-            <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <Link href="/signup" className="flex items-center gap-2">
+              Start Free Trial
+              <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
           </Button>
           <Button variant="outline" size="md" className="h-14 px-10 rounded-xl text-base bg-white/50 backdrop-blur-sm">
             Watch Video
@@ -118,14 +121,41 @@ export default function HeroSection() {
               />
             </div>
           </div>
-          
+
+          {/* Floating Sparkles Badge - fully mobile responsive */}
           <motion.div 
             animate={{ y: [0, -10, 0] }}
             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -top-6 -right-6 w-16 h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center z-20 border border-slate-100"
+            className="absolute -top-3 -right-2 sm:-top-6 sm:-right-6 w-12 h-12 sm:w-16 sm:h-16 bg-white rounded-2xl shadow-lg flex items-center justify-center z-20 border border-slate-100"
           >
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+          </motion.div>
+
+          {/* New Engagement Up Badge - fully mobile responsive */}
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ 
+              opacity: 1, 
+              x: 0,
+              y: [0, 10, 0] 
+            }}
+            transition={{ 
+              opacity: { duration: 0.6, delay: 0.8 },
+              x: { duration: 0.6, delay: 0.8 },
+              y: { duration: 6, repeat: Infinity, ease: "easeInOut" }
+            }}
+            className="absolute -bottom-3 left-1 sm:-bottom-6 sm:-left-4 md:-left-10 bg-white rounded-xl p-1.5 sm:p-3 border border-primary/20 shadow-xl overflow-hidden z-20 flex items-center gap-2 sm:gap-3"
+          >
+            <div className="w-8 h-8 sm:w-12 sm:h-12 bg-primary/5 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 fill-primary/20" />
+              </div>
+            </div>
+            <div className="text-left pr-2 sm:pr-4">
+              <div className="text-primary font-extrabold text-xs sm:text-sm leading-tight whitespace-nowrap">Engagement Up</div>
+              <div className="text-primary/60 font-semibold text-[10px] sm:text-[11px] leading-tight whitespace-nowrap">Real-time automation</div>
             </div>
           </motion.div>
         </motion.div>
